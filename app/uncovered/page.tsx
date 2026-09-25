@@ -111,7 +111,7 @@ function UncoveredInner() {
 
         <DealsTable
           deals={filtered}
-          showColumns={{ district: true, seManager: true, owner: true, suggestedPlay: true }}
+          showColumns={{ district: true, seManager: true, owner: true }}
         />
         <p className="text-xs text-muted-foreground">
           Sorted by status (No ASE first), then by close date. Use column headers to re-sort or filter.

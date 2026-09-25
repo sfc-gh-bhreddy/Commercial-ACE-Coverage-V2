@@ -25,7 +25,7 @@ interface CoverageState {
 
 const CoverageContext = React.createContext<CoverageState | null>(null);
 
-const CACHE_KEY = "comm-ase-deals-v2";
+const CACHE_KEY = "comm-ase-deals-v3-partner-signals";
 
 function readCached(): Deal[] | null {
   if (typeof window === "undefined") return null;
@@ -33,7 +33,11 @@ function readCached(): Deal[] | null {
     const raw = window.localStorage.getItem(CACHE_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as Deal[];
-    return Array.isArray(parsed) && parsed.length > 0 ? parsed : null;
+    if (!Array.isArray(parsed) || parsed.length === 0) return null;
+    // Shape check: data written before a schema change (new signal fields) is
+    // stale — drop it and refetch instead of serving zeros forever.
+    if (!("isOdFlip" in parsed[0]) || !("isPartnerInvolved" in parsed[0])) return null;
+    return parsed;
   } catch {
     return null;
   }

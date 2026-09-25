@@ -53,6 +53,18 @@ export interface Deal {
   isSiInvolved: boolean;
   /** SI firm name when known from the use-case record; null otherwise. */
   siPartnerName: string | null;
+  /** True when ANY use case (open or not) carries a partner name. */
+  isPartnerInvolved: boolean;
+  /** Partner name from any use case; null otherwise. */
+  partnerName: string | null;
+  /** True when any use case has PS engagement (Advisory/Proposing/Implementation/Support). */
+  isPsInvolved: boolean;
+  /** Latest PS engagement stage when flagged; null otherwise. */
+  psEngagement: string | null;
+  /** True when the account itself is a partner (TYPE='Partner', DCP/DCS flags). */
+  isPartnerAccount: boolean;
+  /** True when the account has both Closed Won On Demand and Capacity opportunities. */
+  isOdFlip: boolean;
 }
 
 export interface UserContext {

@@ -159,6 +159,38 @@ si_partner AS (
     WHERE SALESFORCE_ACCOUNT_ID IS NOT NULL
     GROUP BY 1
 ),
+-- Bluebird-style ANY-partner signal: unlike si_partner above (ALL open UCs),
+-- this flags the account when even ONE use case carries a partner name.
+uc_any_partner AS (
+    SELECT SALESFORCE_ACCOUNT_ID AS account_id,
+           MAX(SALESFORCE_PARTNER_NAME) AS any_partner_name
+    FROM SALES.SE_REPORTING.DD_SOLUTION_ENGINEER_SALESFORCE_USE_CASE
+    WHERE SALESFORCE_ACCOUNT_ID IS NOT NULL
+      AND NULLIF(TRIM(SALESFORCE_PARTNER_NAME), '') IS NOT NULL
+    GROUP BY 1
+),
+-- PS engagement on any use case: Professional Services is already advising,
+-- proposing, implementing, or supporting — another team owns activation.
+ps_engaged AS (
+    SELECT SALESFORCE_ACCOUNT_ID AS account_id,
+           MAX(PS_ENGAGEMENT) AS ps_engagement
+    FROM SALES.SE_REPORTING.DD_SOLUTION_ENGINEER_SALESFORCE_USE_CASE
+    WHERE SALESFORCE_ACCOUNT_ID IS NOT NULL
+      AND PS_ENGAGEMENT IN ('Advisory','Proposing','Implementation','Support')
+    GROUP BY 1
+),
+-- On-Demand flip: account has both a Closed Won On Demand opportunity and a
+-- Closed Won Capacity opportunity — it is already consuming in another motion.
+od_flip AS (
+    SELECT o.ACCOUNT_ID AS account_id
+    FROM FIVETRAN.SALESFORCE.OPPORTUNITY o
+    WHERE NOT COALESCE(o.IS_DELETED, FALSE)
+      AND o.STAGE_NAME = 'Closed Won'
+      AND o.ACCOUNT_ID IS NOT NULL
+    GROUP BY 1
+    HAVING BOOLOR_AGG(o.AGREEMENT_TYPE_C ILIKE 'On Demand%')
+       AND BOOLOR_AGG(o.AGREEMENT_TYPE_C ILIKE 'Capacity%')
+),
 -- Trailing 12-month consumption revenue per account, matching the window used by
 -- the A360 app's "Total Consumption" tile (rolling 12 months anchored to today).
 -- Daily account-grain revenue from the A360 consumption view, all revenue categories.
@@ -300,7 +332,15 @@ SELECT
         (si.account_id IS NOT NULL AND si.open_ucs > 0 AND si.open_ucs = si.open_si_ucs)
         OR dr.opportunity_id IS NOT NULL
     )                                                         AS IS_SI_INVOLVED,
-    COALESCE(si.si_partner_name, dr.dr_partner_name)          AS SI_PARTNER_NAME
+    COALESCE(si.si_partner_name, dr.dr_partner_name)          AS SI_PARTNER_NAME,
+    (ucp.account_id IS NOT NULL)                              AS IS_PARTNER_INVOLVED,
+    ucp.any_partner_name                                      AS PARTNER_NAME,
+    (ps.account_id IS NOT NULL)                               AS IS_PS_INVOLVED,
+    ps.ps_engagement                                          AS PS_ENGAGEMENT,
+    (COALESCE(acct.TYPE = 'Partner', FALSE)
+     OR COALESCE(acct.IS_DCP_PARTNER, FALSE)
+     OR COALESCE(acct.IS_DCS_PARTNER, FALSE))                 AS IS_PARTNER_ACCOUNT,
+    (odf.account_id IS NOT NULL)                              AS IS_OD_FLIP
 FROM cap1 c
 CROSS JOIN params p
 LEFT JOIN tmr               t   ON t.account_id   = c.SALESFORCE_ACCOUNT_ID
@@ -318,6 +358,9 @@ LEFT JOIN TEMP.BHREDDY.ACE_TOPIC_HINTS ah ON ah.OPPORTUNITY_ID = c.OPPORTUNITY_I
 LEFT JOIN ace_map am ON am.ACCOUNT_ID = c.SALESFORCE_ACCOUNT_ID
 LEFT JOIN si_partner si ON si.account_id = c.SALESFORCE_ACCOUNT_ID
 LEFT JOIN deal_reg   dr ON dr.opportunity_id = c.OPPORTUNITY_ID
+LEFT JOIN uc_any_partner ucp ON ucp.account_id = c.SALESFORCE_ACCOUNT_ID
+LEFT JOIN ps_engaged  ps  ON ps.account_id  = c.SALESFORCE_ACCOUNT_ID
+LEFT JOIN od_flip     odf ON odf.account_id = c.SALESFORCE_ACCOUNT_ID
 ORDER BY c.CAP1_ACV DESC
 `;
 
@@ -360,6 +403,12 @@ interface RawDeal {
   TOPIC_CONFIDENCE: string | null;
   IS_SI_INVOLVED: boolean | null;
   SI_PARTNER_NAME: string | null;
+  IS_PARTNER_INVOLVED: boolean | null;
+  PARTNER_NAME: string | null;
+  IS_PS_INVOLVED: boolean | null;
+  PS_ENGAGEMENT: string | null;
+  IS_PARTNER_ACCOUNT: boolean | null;
+  IS_OD_FLIP: boolean | null;
 }
 
 function coverageStatus(anyAce: boolean): CoverageStatus {
@@ -403,6 +452,12 @@ export async function getDeals(): Promise<Deal[]> {
       topicConfidence: (r.TOPIC_CONFIDENCE as Deal["topicConfidence"]) ?? "inferred",
       isSiInvolved: Boolean(r.IS_SI_INVOLVED),
       siPartnerName: r.SI_PARTNER_NAME,
+      isPartnerInvolved: Boolean(r.IS_PARTNER_INVOLVED),
+      partnerName: r.PARTNER_NAME,
+      isPsInvolved: Boolean(r.IS_PS_INVOLVED),
+      psEngagement: r.PS_ENGAGEMENT,
+      isPartnerAccount: Boolean(r.IS_PARTNER_ACCOUNT),
+      isOdFlip: Boolean(r.IS_OD_FLIP),
     };
   });
 }

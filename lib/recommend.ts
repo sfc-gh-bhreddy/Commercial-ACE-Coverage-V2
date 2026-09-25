@@ -38,6 +38,10 @@ export interface Recommendation {
  * has never consumed still gets only "Assign an ASE", never Bluebird.
  *
  *   SI involved (all open UCs have SI)       -> no action
+ *   Partner involved (any UC has a partner)  -> no action
+ *   PS involved (any UC has PS engagement)   -> no action
+ *   Partner account (account IS a partner)   -> no action
+ *   OD flip (On Demand + Capacity closed won)-> no action
  *   cap1Acv >= $65k                          -> ASE
  *   cap1Acv <  $65k, new to Snowflake        -> Bluebird + Webinar + ASE
  *   cap1Acv <  $65k, all others              -> Bluebird + Webinar
@@ -48,7 +52,7 @@ export interface Recommendation {
 export function recommend(deal: Deal, today?: Date): Recommendation {
   const { cap1Acv, consumptionStage, isNewToSnowflake, recommendedTopicId } = deal;
 
-  // ---- Gate 0: SI partner involvement suppresses everything ---------------
+  // ---- Gate 0: external ownership / partner signals suppress everything -----
   // Every open (not deployed) use case has an SI on it — the account is
   // handled externally, no ASE/webinar/Bluebird motion needed.
   if (deal.isSiInvolved) {
@@ -57,6 +61,53 @@ export function recommend(deal: Deal, today?: Date): Recommendation {
       bestWebinar: null,
       drivers: [
         `SI involved — implementation handled externally, no action needed`,
+      ],
+    };
+  }
+
+  // Any use case carries a partner — a partner is already touching the
+  // account (Bluebird's ANY rule, broader than the SI gate above).
+  if (deal.isPartnerInvolved) {
+    return {
+      motions: [],
+      bestWebinar: null,
+      drivers: [
+        `Partner involved${deal.partnerName ? ` (${deal.partnerName})` : ""} — a partner is already engaged on a use case`,
+      ],
+    };
+  }
+
+  // Professional Services is advising / proposing / implementing / supporting
+  // on any use case — PS owns the activation motion.
+  if (deal.isPsInvolved) {
+    return {
+      motions: [],
+      bestWebinar: null,
+      drivers: [
+        `PS involved (${deal.psEngagement ?? "engaged"}) — Professional Services is engaged on a use case`,
+      ],
+    };
+  }
+
+  // The account itself is a partner (partner TYPE or DCP/DCS flag).
+  if (deal.isPartnerAccount) {
+    return {
+      motions: [],
+      bestWebinar: null,
+      drivers: [
+        "Partner account — the account is itself a partner, no activation play",
+      ],
+    };
+  }
+
+  // Account has both Closed Won On Demand and Capacity opportunities — it is
+  // already consuming in a different motion (Bluebird's On-Demand flip rule).
+  if (deal.isOdFlip) {
+    return {
+      motions: [],
+      bestWebinar: null,
+      drivers: [
+        "OD flip — account already has On Demand and Capacity closed won",
       ],
     };
   }

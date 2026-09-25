@@ -3,12 +3,9 @@
 import { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import { ChevronDown, Download } from "lucide-react";
 import { StatusBadge } from "@/components/status-badge";
-import { regionLabel, BLUEBIRD_LISTING_URL, BLUEBIRD_BLURB, STATUS_PALETTES } from "@/lib/constants";
+import { regionLabel } from "@/lib/constants";
 import { formatUsd, formatDate, dash } from "@/lib/format";
-import { recommend } from "@/lib/recommend";
-import { sessionLabel, sessionState } from "@/lib/webinars";
 import type { Deal } from "@/lib/types";
-import type { Motion } from "@/lib/recommend";
 
 function exportSelectedCsv(deals: Deal[]) {
   const cols = [
@@ -24,7 +21,7 @@ function exportSelectedCsv(deals: Deal[]) {
     { h: "Status", g: (d: Deal) => d.coverageStatus },
     { h: "Opportunity ID", g: (d: Deal) => d.opportunityId },
   ];
-  function esc(v: string) { return /[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v; }
+  function esc(v: string) { return /[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v }
   const header = cols.map((c) => c.h).join(",");
   const body = deals.map((d) => cols.map((c) => esc(c.g(d))).join(",")).join("\n");
   const blob = new Blob([`${header}\n${body}`], { type: "text/csv;charset=utf-8;" });
@@ -36,70 +33,8 @@ function exportSelectedCsv(deals: Deal[]) {
   URL.revokeObjectURL(url);
 }
 
-const MOTION_STYLES: Record<Motion, { bg: string; fg: string; label: string }> = {
-  Bluebird: { bg: STATUS_PALETTES.success.bg, fg: STATUS_PALETTES.success.fg, label: "Bluebird" },
-  Webinar:  { bg: STATUS_PALETTES.info.bg,    fg: STATUS_PALETTES.info.fg,    label: "Webinar" },
-  ASE:      { bg: STATUS_PALETTES.warning.bg, fg: STATUS_PALETTES.warning.fg, label: "Assign an ASE" },
-};
 
-function MotionPills({ deal }: { deal: Deal }) {
-  const today = new Date();
-  const rec = recommend(deal, today);
-  if (deal.isSiInvolved) {
-    return (
-      <span
-        className="rounded-full px-2 py-0.5 text-[11px] font-medium whitespace-nowrap"
-        style={{ background: "#f3e8ff", color: "#6b21a8" }}
-        title={rec.drivers[0]}
-      >
-        SI involved
-      </span>
-    );
-  }
-  if (rec.motions.length === 0) {
-    return <span className="text-xs text-muted-foreground">{rec.drivers[0] ?? "No action"}</span>;
-  }
-  return (
-    <div className="flex items-center gap-2 flex-wrap">
-      {rec.motions.map((m) => {
-          const s = MOTION_STYLES[m];
-          if (m === "Bluebird") {
-            return (
-              <a key={m} href={BLUEBIRD_LISTING_URL} target="_blank" rel="noopener noreferrer" title={BLUEBIRD_BLURB}
-                 className="rounded-full px-2 py-0.5 text-[11px] font-medium whitespace-nowrap hover:opacity-80"
-                 style={{ background: s.bg, color: s.fg }}>{s.label}</a>
-            );
-          }
-          if (m === "Webinar" && rec.bestWebinar) {
-            const state = sessionState(rec.bestWebinar, today);
-            const label = sessionLabel(rec.bestWebinar, today);
-            return (
-              <span key={m} className="inline-flex items-center gap-1.5">
-                <a
-                  href={rec.bestWebinar.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  title={`${rec.bestWebinar.topic} — ${rec.bestWebinar.speaker}`}
-                  className="text-[11px] font-semibold underline decoration-1 underline-offset-2 hover:opacity-70"
-                  style={{ color: "#9fd4fa" }}
-                >
-                  {rec.bestWebinar.topic}
-                </a>
-                <span className="text-[10px] text-muted-foreground whitespace-nowrap shrink-0">
-                  {state === "live" ? label : "On demand"}
-                  {deal.topicConfidence === "inferred" ? " *" : ""}
-                </span>
-              </span>
-            );
-          }
-          return (
-            <span key={m} className="rounded-full px-2 py-0.5 text-[11px] font-medium whitespace-nowrap"
-                  style={{ background: s.bg, color: s.fg }}>{s.label}</span>
-          );
-        })}
-    </div>
-  );
-}
+
 
 // --- Sorting ---
 type SortDir = "asc" | "desc" | null;
@@ -367,7 +302,7 @@ export function DealsTable({
   showColumns = {},
 }: {
   deals: Deal[];
-  showColumns?: { district?: boolean; seManager?: boolean; owner?: boolean; suggestedPlay?: boolean };
+  showColumns?: { district?: boolean; seManager?: boolean; owner?: boolean;  };
 }) {
   const [sort, setSort] = useState<SortState>({ key: "acv", dir: "desc" });
   const [filterText, setFilterText] = useState("");
@@ -471,7 +406,7 @@ export function DealsTable({
         />
         {(filterText || activeFilterCount > 0) && (
           <button
-            onClick={() => { setFilterText(""); setColumnFilters({}); }}
+            onClick={() => { setFilterText(""); setColumnFilters({}) }}
             className="text-xs text-muted-foreground hover:text-foreground"
           >
             Clear all
@@ -541,9 +476,7 @@ export function DealsTable({
               <FilterableSortHeader label="Cap1 ACV" sortKey="acv" className="text-right" {...sharedFilterProps} />
               <FilterableSortHeader label="TTM consumption" sortKey="ytd" className="text-right" {...sharedFilterProps} />
               <FilterableSortHeader label="Status" sortKey="status" filterable {...sharedFilterProps} />
-              {showColumns.suggestedPlay ? (
-                <th className="text-left font-medium px-3 py-2.5">Suggested play</th>
-              ) : null}
+              <th className="text-left font-medium px-3 py-2.5"></th>
             </tr>
           </thead>
           <tbody>
@@ -555,7 +488,7 @@ export function DealsTable({
               >
                 <td className="px-2 py-2.5">
                   <button
-                    onClick={(e) => { e.stopPropagation(); toggleRow(d.opportunityId); }}
+                    onClick={(e) => { e.stopPropagation(); toggleRow(d.opportunityId) }}
                     className="flex items-center justify-center size-5 rounded border-2 transition-colors"
                     style={{
                       borderColor: selected.has(d.opportunityId) ? "var(--brand-primary)" : "var(--border)",
@@ -590,22 +523,17 @@ export function DealsTable({
                 <td className="px-3 py-2.5">
                   <StatusBadge status={d.coverageStatus} />
                 </td>
-                {showColumns.suggestedPlay ? (
-                  <td className="px-3 py-2.5 min-w-[180px]">
-                    <div className="flex items-center gap-3">
-                      <MotionPills deal={d} />
-                      <a
-                        href="https://snowflake.elementum.io/services/4860adda-9a4c-460a-8698-2d7884700c55"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center text-[12px] font-medium underline decoration-1 underline-offset-2 hover:opacity-70 whitespace-nowrap shrink-0 ml-auto"
-                        style={{ color: "#7cc4f5" }}
-                      >
-                        Open TMR ↗
-                      </a>
-                    </div>
-                  </td>
-                ) : null}
+                <td className="px-3 py-2.5">
+                  <a
+                    href="https://snowflake.elementum.io/services/4860adda-9a4c-460a-8698-2d7884700c55"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center text-[12px] font-medium underline decoration-1 underline-offset-2 hover:opacity-70 whitespace-nowrap"
+                    style={{ color: "#7cc4f5" }}
+                  >
+                    Open TMR ↗
+                  </a>
+                </td>
               </tr>
             ))}
             {sorted.length === 0 ? (

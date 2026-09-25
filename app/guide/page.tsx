@@ -117,6 +117,50 @@ export default function GuidePage() {
                 A partner appears to be handling implementation on this account, so no ASE action is suggested. <strong>This is a signal, not a guarantee.</strong> It is detected from open use-case partner attachment or an approved Salesforce deal registration ("SPN: Deal Registrations" on the opportunity). Always verify in Salesforce before skipping outreach — the partner data is not always current.
               </p>
             </div>
+
+            {/* Partner involved */}
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <Pill label="Partner involved" bg="#ffedd5" fg="#9a3412" />
+                <p className="font-medium">A partner is on any use case</p>
+              </div>
+              <p className="text-muted-foreground">
+                At least one use case on the account (open or closed) lists a partner, so no play is suggested. Broader than "SI involved" — any single partner touch flags the account. <strong>Verify before skipping outreach.</strong>
+              </p>
+            </div>
+
+            {/* PS involved */}
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <Pill label="PS involved" bg="#e0f2fe" fg="#075985" />
+                <p className="font-medium">Professional Services is engaged</p>
+              </div>
+              <p className="text-muted-foreground">
+                Any use case on the account shows PS engagement (Advisory, Proposing, Implementation, or Support). Professional Services owns the activation motion, so no play is suggested.
+              </p>
+            </div>
+
+            {/* Partner acct */}
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <Pill label="Partner acct" bg="#fae8ff" fg="#86198f" />
+                <p className="font-medium">The account is itself a partner</p>
+              </div>
+              <p className="text-muted-foreground">
+                The account's Salesforce type is Partner, or it carries a DCP or DCS partner flag. Partner accounts are excluded from activation plays.
+              </p>
+            </div>
+
+            {/* OD flip */}
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <Pill label="OD flip" bg="#fce7f3" fg="#9d174d" />
+                <p className="font-medium">On Demand and Capacity both closed won</p>
+              </div>
+              <p className="text-muted-foreground">
+                The account has both a Closed Won On Demand opportunity and a Closed Won Capacity opportunity — it is already consuming under a different motion, so no activation play is suggested.
+              </p>
+            </div>
           </div>
         </Section>
 

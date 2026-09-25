@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, ListTodo, Building2, UserCog, Briefcase, BarChart3, Info } from "lucide-react";
+import { LayoutDashboard, ListTodo, Building2, UserCog, Briefcase, BarChart3, Info, Sparkles } from "lucide-react";
 import { APP_TITLE } from "@/lib/constants";
 import { ThemeToggle } from "@/components/theme-toggle";
 
@@ -12,6 +12,7 @@ const NAV_SECTIONS = [
     items: [
       { href: "/", label: "Overview", icon: LayoutDashboard },
       { href: "/uncovered", label: "ASE Coverage", icon: ListTodo },
+      { href: "/plays", label: "Suggested Plays", icon: Sparkles },
     ],
   },
   {
