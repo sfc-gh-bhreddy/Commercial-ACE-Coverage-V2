@@ -1,0 +1,129 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    /* Brand */
+    --brand-primary: #2e9bd6;
+    --brand-primary-foreground: #ffffff;
+    --brand-nav-bg: #11171f;
+    --brand-nav-fg: #e8edf3;
+
+    /* Snowsight dark palette (default) */
+    --background: #11171f;
+    --foreground: #e8edf3;
+    --card: #171e28;
+    --card-foreground: #e8edf3;
+    --popover: #1b232e;
+    --popover-foreground: #e8edf3;
+    --muted: #1d2530;
+    --muted-foreground: #8b98a8;
+    --accent: #232c38;
+    --accent-foreground: #e8edf3;
+    --border: #232c38;
+    --input: #232c38;
+    --primary: var(--brand-primary);
+    --primary-foreground: var(--brand-primary-foreground);
+    --secondary: #1d2530;
+    --secondary-foreground: #e8edf3;
+    --destructive: #f87171;
+    --destructive-foreground: #ffffff;
+    --ring: var(--brand-primary);
+
+    --sidebar-bg: #0d1218;
+    --sidebar-hover: #1d2530;
+    --sidebar-active: #1e3a5f;
+
+    --radius: 0.5rem;
+  }
+
+  .light {
+    --background: #ffffff;
+    --foreground: #0f172a;
+    --card: #ffffff;
+    --card-foreground: #0f172a;
+    --popover: #ffffff;
+    --popover-foreground: #0f172a;
+    --muted: #f1f5f9;
+    --muted-foreground: #64748b;
+    --accent: #f1f5f9;
+    --accent-foreground: #0f172a;
+    --border: #e2e8f0;
+    --input: #e2e8f0;
+    --secondary: #f1f5f9;
+    --secondary-foreground: #0f172a;
+    --destructive: #dc2626;
+    --destructive-foreground: #ffffff;
+    --sidebar-bg: #f8fafc;
+    --sidebar-hover: #e2e8f0;
+    --sidebar-active: #dbeafe;
+  }
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-ring: var(--ring);
+
+  --color-brand-primary: var(--brand-primary);
+  --color-brand-primary-foreground: var(--brand-primary-foreground);
+  --color-brand-nav-bg: var(--brand-nav-bg);
+  --color-brand-nav-fg: var(--brand-nav-fg);
+  --color-sidebar-bg: var(--sidebar-bg);
+  --color-sidebar-hover: var(--sidebar-hover);
+  --color-sidebar-active: var(--sidebar-active);
+
+  --radius-lg: var(--radius);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-sm: calc(var(--radius) - 4px);
+
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  @apply antialiased min-h-screen bg-background text-foreground;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  @apply tracking-tight;
+}
+
+button:not(:disabled),
+[role="button"]:not(:disabled) {
+  cursor: pointer;
+}
+
+/* Snowsight-style scrollbars */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 5px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--muted-foreground);
+}
