@@ -11,6 +11,7 @@ const MOTION_COLORS: Record<string, { background: string; color: string }> = {
   ASE: { background: "#dbeafe", color: "#1e40af" },
   Bluebird: { background: "#dcfce7", color: "#166534" },
   Webinar: { background: "#fef9c3", color: "#854d0e" },
+  Hybrid: { background: "#e0e7ff", color: "#3730a3" },
 };
 
 function formatUsd(v: number): string {
@@ -25,7 +26,22 @@ function regionLabel(r: string): string {
   return r;
 }
 
-type FilterMode = "all" | "bluebird" | "webinar" | "ase" | "si" | "partner" | "ps" | "partneracct" | "odflip";
+type FilterMode = "all" | "bluebird" | "webinar" | "ase" | "hybrid" | "si" | "partner" | "ps" | "partneracct" | "odflip";
+
+function isHybrid(motions: string[]): boolean {
+  return motions.includes("ASE") && motions.includes("Bluebird") && motions.includes("Webinar");
+}
+
+type SortKey = "account" | "region" | "ae" | "acv" | "status";
+type SortDir = "asc" | "desc";
+
+const SORTABLE_COLUMNS: { key: SortKey; label: string; numeric?: boolean }[] = [
+  { key: "account", label: "Account" },
+  { key: "region", label: "Region" },
+  { key: "ae", label: "AE" },
+  { key: "acv", label: "Cap1 ACV", numeric: true },
+  { key: "status", label: "Status" },
+];
 
 /** Suppression pill for a deal, in precedence order (first match wins). */
 function suppressionPill(d: Deal): { label: string; bg: string; fg: string } | null {
@@ -41,6 +57,17 @@ export default function SuggestedPlaysPage() {
   const { quarterDeals, loading } = useCoverage();
   const [filter, setFilter] = useState<FilterMode>("all");
   const [search, setSearch] = useState("");
+  const [sortKey, setSortKey] = useState<SortKey | null>(null);
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
+
+  const toggleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortDir(key === "acv" ? "desc" : "asc");
+    }
+  };
 
   const rows = useMemo(() => {
     return quarterDeals.map((d) => ({
@@ -52,14 +79,15 @@ export default function SuggestedPlaysPage() {
   const filtered = useMemo(() => {
     let list = rows;
 
-    if (filter === "bluebird") list = list.filter((r) => r.rec.motions.includes("Bluebird"));
-    else if (filter === "webinar") list = list.filter((r) => r.rec.motions.includes("Webinar"));
-    else if (filter === "ase") list = list.filter((r) => r.rec.motions.includes("ASE"));
-    else if (filter === "si") list = list.filter((r) => r.deal.isSiInvolved);
-    else if (filter === "partner") list = list.filter((r) => r.deal.isPartnerInvolved);
-    else if (filter === "ps") list = list.filter((r) => r.deal.isPsInvolved);
-    else if (filter === "partneracct") list = list.filter((r) => r.deal.isPartnerAccount);
-    else if (filter === "odflip") list = list.filter((r) => r.deal.isOdFlip);
+    if (filter === "hybrid") list = list.filter((r) => isHybrid(r.rec.motions));
+    else if (filter === "bluebird") list = list.filter((r) => r.rec.motions.includes("Bluebird") && !isHybrid(r.rec.motions));
+    else if (filter === "webinar") list = list.filter((r) => r.rec.motions.includes("Webinar") && !isHybrid(r.rec.motions));
+    else if (filter === "ase") list = list.filter((r) => r.rec.motions.includes("ASE") && !isHybrid(r.rec.motions));
+    else if (filter === "si") list = list.filter((r) => suppressionPill(r.deal)?.label === "SI involved");
+    else if (filter === "partner") list = list.filter((r) => suppressionPill(r.deal)?.label === "Partner involved");
+    else if (filter === "ps") list = list.filter((r) => suppressionPill(r.deal)?.label === "PS involved");
+    else if (filter === "partneracct") list = list.filter((r) => suppressionPill(r.deal)?.label === "Partner acct");
+    else if (filter === "odflip") list = list.filter((r) => suppressionPill(r.deal)?.label === "OD flip");
 
     if (search.trim()) {
       const q = search.toLowerCase();
@@ -71,28 +99,55 @@ export default function SuggestedPlaysPage() {
       );
     }
 
+    if (sortKey) {
+      const dir = sortDir === "asc" ? 1 : -1;
+      const val = (r: { deal: Deal }) => {
+        switch (sortKey) {
+          case "account": return (r.deal.accountName ?? "").toLowerCase();
+          case "region":  return regionLabel(r.deal.region).toLowerCase();
+          case "ae":      return (r.deal.owner ?? "").toLowerCase();
+          case "acv":     return r.deal.cap1Acv;
+          case "status":  return r.deal.coverageStatus;
+        }
+      };
+      list = [...list].sort((a, b) => {
+        const va = val(a), vb = val(b);
+        if (typeof va === "number" && typeof vb === "number") return (va - vb) * dir;
+        return String(va).localeCompare(String(vb)) * dir;
+      });
+    }
+
     return list;
-  }, [rows, filter, search]);
+  }, [rows, filter, search, sortKey, sortDir]);
 
   const counts = useMemo(() => {
-    let bluebird = 0, webinar = 0, ase = 0, si = 0,
+    let bluebird = 0, webinar = 0, ase = 0, hybrid = 0, si = 0,
         partner = 0, ps = 0, partneracct = 0, odflip = 0;
     for (const r of rows) {
-      if (r.deal.isSiInvolved) si++;
-      if (r.deal.isPartnerInvolved) partner++;
-      if (r.deal.isPsInvolved) ps++;
-      if (r.deal.isPartnerAccount) partneracct++;
-      if (r.deal.isOdFlip) odflip++;
-      if (r.rec.motions.includes("Bluebird")) bluebird++;
-      if (r.rec.motions.includes("Webinar")) webinar++;
-      if (r.rec.motions.includes("ASE")) ase++;
+      const pill = suppressionPill(r.deal);
+      if (pill) {
+        switch (pill.label) {
+          case "SI involved":      si++; break;
+          case "Partner involved": partner++; break;
+          case "PS involved":      ps++; break;
+          case "Partner acct":     partneracct++; break;
+          case "OD flip":          odflip++; break;
+        }
+      } else if (isHybrid(r.rec.motions)) {
+        hybrid++;
+      } else {
+        if (r.rec.motions.includes("Bluebird")) bluebird++;
+        if (r.rec.motions.includes("Webinar")) webinar++;
+        if (r.rec.motions.includes("ASE")) ase++;
+      }
     }
-    return { all: rows.length, bluebird, webinar, ase, si, partner, ps, partneracct, odflip };
+    return { all: rows.length, bluebird, webinar, ase, hybrid, si, partner, ps, partneracct, odflip };
   }, [rows]);
 
   const FILTERS: { key: FilterMode; label: string; count: number; bg: string; fg: string }[] = [
     { key: "all", label: "All", count: counts.all, bg: "var(--muted)", fg: "var(--foreground)" },
     { key: "ase", label: "ASE", count: counts.ase, bg: "#dbeafe", fg: "#1e40af" },
+    { key: "hybrid", label: "Hybrid", count: counts.hybrid, bg: "#e0e7ff", fg: "#3730a3" },
     { key: "bluebird", label: "Bluebird", count: counts.bluebird, bg: "#dcfce7", fg: "#166534" },
     { key: "webinar", label: "Webinar", count: counts.webinar, bg: "#fef9c3", fg: "#854d0e" },
     { key: "si", label: "SI involved", count: counts.si, bg: "#f3e8ff", fg: "#6b21a8" },
@@ -110,7 +165,7 @@ export default function SuggestedPlaysPage() {
     >
       {/* Filter bar */}
       <div className="flex items-center gap-2 flex-wrap mb-4">
-        {FILTERS.map((f) => (
+        {FILTERS.filter((f) => f.key === "all" || f.count > 0).map((f) => (
           <button
             key={f.key}
             onClick={() => setFilter(f.key)}
@@ -136,14 +191,39 @@ export default function SuggestedPlaysPage() {
 
       {/* Table */}
       <div className="overflow-x-auto rounded-lg border" style={{ borderColor: "var(--border)" }}>
-        <table className="w-full text-[13px]">
+        <table className="w-full text-[13px]" style={{ tableLayout: "fixed" }}>
+          <colgroup>
+            <col style={{ width: "16%" }} />
+            <col style={{ width: "7%" }} />
+            <col style={{ width: "12%" }} />
+            <col style={{ width: "10%" }} />
+            <col style={{ width: "8%" }} />
+            <col style={{ width: "12%" }} />
+            <col style={{ width: "17%" }} />
+            <col style={{ width: "18%" }} />
+          </colgroup>
           <thead>
             <tr className="border-b text-left text-muted-foreground text-[11px] uppercase tracking-wider" style={{ borderColor: "var(--border)", background: "var(--muted)" }}>
-              <th className="px-3 py-2.5 font-medium">Account</th>
-              <th className="px-3 py-2.5 font-medium">Region</th>
-              <th className="px-3 py-2.5 font-medium">AE</th>
-              <th className="px-3 py-2.5 font-medium text-right">Cap1 ACV</th>
-              <th className="px-3 py-2.5 font-medium">Status</th>
+              {([
+                { label: "Account", key: "account" as SortKey, cls: "" },
+                { label: "Region", key: "region" as SortKey, cls: "" },
+                { label: "AE", key: "ae" as SortKey, cls: "" },
+                { label: "Cap1 ACV", key: "acv" as SortKey, cls: "text-right" },
+                { label: "Status", key: "status" as SortKey, cls: "" },
+              ] as const).map((col) => (
+                <th key={col.key} className={`px-3 py-2.5 font-medium ${col.cls}`}>
+                  <button
+                    onClick={() => toggleSort(col.key)}
+                    className="inline-flex items-center gap-1 hover:text-foreground transition-colors"
+                    title="Click to sort"
+                  >
+                    {col.label}
+                    <span className="text-[9px] leading-none">
+                      {sortKey === col.key ? (sortDir === "asc" ? "▲" : "▼") : "⇅"}
+                    </span>
+                  </button>
+                </th>
+              ))}
               <th className="px-3 py-2.5 font-medium">Suggested play</th>
               <th className="px-3 py-2.5 font-medium">Webinar topic</th>
               <th className="px-3 py-2.5 font-medium">Reason</th>
@@ -187,6 +267,16 @@ export default function SuggestedPlaysPage() {
                       }
                       if (rec.motions.length === 0) {
                         return <span className="text-xs text-muted-foreground">—</span>;
+                      }
+                      if (isHybrid(rec.motions)) {
+                        return (
+                          <span
+                            className="rounded-full px-2 py-0.5 text-[11px] font-medium whitespace-nowrap"
+                            style={MOTION_COLORS.Hybrid}
+                          >
+                            Hybrid
+                          </span>
+                        );
                       }
                       return rec.motions.map((m) => (
                         <span

@@ -1,0 +1,11 @@
+node_modules
+.next
+.git
+.data-cache
+.DS_Store
+*.log
+*.md
+.gitignore
+.env*
+snowflake.log
+tsconfig.tsbuildinfo

@@ -7,7 +7,7 @@
 
 export const APP_TITLE = "ASE Commercial Coverage";
 export const APP_DESCRIPTION =
-  "Account Engineer coverage on Cap1 deals across the Commercial org (FY27) \u2014 where you're covered, where the gaps are, and which Cap1s to attach an ASE to next.";
+  "ASC Engineer coverage on Cap1 deals across the Commercial org (FY27) \u2014 where you're covered, where the gaps are, and which Cap1s to attach an ASE to next.";
 export const LOGO_PATH = "/icon.svg";
 
 // ----------------------------------------------------------------------------
@@ -43,16 +43,13 @@ export function regionLabel(region: string | null): string {
 // MOTION ROUTING THRESHOLD
 // ----------------------------------------------------------------------------
 /**
- * The single business rule that splits self-service from human coverage:
- *   below  $50k -> Bluebird + Webinar (and + ASE if new to Snowflake)
- *   at/above    -> Assign an ASE
- *
- * Context worth knowing: 556 of 585 FY27 Cap1 deals are under $100k with a
- * median of ~$20k, so this threshold puts most of the book on self-service by
- * design. ASE capacity is the binding constraint (25 ASEs served 541 accounts
- * company-wide last year), not deal size.
+ * Two ACV thresholds split the book into three tiers:
+ *   Above $65K               -> primarily 1:1 ASE
+ *   Above $25K through $65K  -> consider hybrid: Bluebird + 1:1 ASE + Webinar
+ *   Up to $25K               -> primarily Bluebird + Webinar
  */
 export const BLUEBIRD_MAX_ACV = 65_000;
+export const HYBRID_MIN_ACV = 25_000;
 
 /** Bluebird private listing. Closed pilot behind a manual quality gate. */
 export const BLUEBIRD_LISTING_URL =

@@ -13,6 +13,9 @@ import { regionLabel, APP_DESCRIPTION } from "@/lib/constants";
 export default function OverviewPage() {
   const { visibleDeals } = useCoverage();
   const s = summarize(visibleDeals);
+  const eligibleDeals = visibleDeals.filter((deal) => !deal.isSiInvolved && !deal.isOdFlip);
+  const eligible = summarize(eligibleDeals);
+  const excluded = s.deals - eligible.deals;
   const regions = byRegion(visibleDeals, regionLabel);
 
   // Whale concentration: is a single gap deal most of the gap ACV?
@@ -31,7 +34,7 @@ export default function OverviewPage() {
       description={APP_DESCRIPTION}
       showQuarterFilter
     >
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <KpiCard label="Cap1 deals (FY27)" value={s.deals} sub="closed-won Cap1s in scope" />
         <KpiCard
           label="Cap1 ACV"
@@ -39,12 +42,20 @@ export default function OverviewPage() {
           sub={`${formatUsd(s.gapAcv)} sits in uncovered deals`}
         />
         <KpiCard
-          label="ASE coverage"
+          label="ASE coverage (all)"
           value={pct1(s.pctAnyAse)}
           sub={`${s.covered} of ${s.deals} deals with an ASE attached`}
           accent
         />
+        <KpiCard
+          label="ASE coverage (excluding SI / OD)"
+          value={eligible.deals ? pct1(eligible.pctAnyAse) : "N/A"}
+          sub={`${eligible.covered} of ${eligible.deals} deals; ${excluded} excluded for SI or OD flip`}
+        />
       </div>
+      <p className="mt-2 text-xs text-muted-foreground">
+        Both coverage percentages use distinct Cap1 deals and the current region scope. The adjusted percentage excludes deals flagged SI involved or OD flip from both the covered count and the total; flags can overlap. These signals are review cues, not proof an ASE is unnecessary.
+      </p>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
         {regions.map((r) => (

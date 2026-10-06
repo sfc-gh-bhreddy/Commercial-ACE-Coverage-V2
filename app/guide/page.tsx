@@ -53,10 +53,21 @@ export default function GuidePage() {
             <div>
               <div className="flex items-center gap-2 mb-1">
                 <Pill label="ASE" bg="#dbeafe" fg="#1e40af" />
-                <p className="font-medium">Assign an Account Engineer</p>
+                <p className="font-medium">Assign an ASC Engineer (1:1)</p>
               </div>
               <p className="text-muted-foreground">
-                Deal ACV is $65K or above. The account warrants direct human coverage — open a TMR to assign an ASE.
+                Deal ACV is above $65K. Primarily consider 1:1 ASE support — open a TMR if needed.
+              </p>
+            </div>
+
+            {/* Hybrid */}
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <Pill label="Hybrid" bg="#e0e7ff" fg="#3730a3" />
+                <p className="font-medium">ASE + Bluebird + Webinar</p>
+              </div>
+              <p className="text-muted-foreground">
+                Deal ACV is above $25K through $65K. Consider a hybrid motion: Bluebird and a webinar alongside 1:1 ASE support when the account needs it.
               </p>
             </div>
 
@@ -76,13 +87,13 @@ export default function GuidePage() {
                 </a>
               </div>
               <p className="text-muted-foreground mb-2">
-                Sub-$65K deal. Enroll the account in the Bluebird Book of Business activation program. The app uses ACV as the primary signal, but Bluebird is a great fit when several of the following are also true:
+                Deal ACV is up to $25K — primarily Bluebird, with a webinar for enablement. Enroll the account in the Bluebird Book of Business activation program. Consider the following fit signals as well:
               </p>
               <ul className="text-muted-foreground flex flex-col gap-0.5 list-disc list-inside">
-                <li><strong className="text-foreground">ACV around $65K or less</strong> — use your discretion for accounts slightly above this; happy to discuss any time.</li>
-                <li><strong className="text-foreground">Signed recently or stalled</strong> — closed within the past 90 days, or signed months ago and still haven't loaded any data.</li>
+                <li><strong className="text-foreground">ACV up to $25K</strong> — use your discretion for accounts slightly above this; happy to discuss any time.</li>
+                <li><strong className="text-foreground">Signed recently or stalled</strong> — closed within the past 90 days, or signed months ago and still haven’t loaded any data.</li>
                 <li><strong className="text-foreground">Small or non-technical team</strong> — 1–3 people trying to get started, not a large engineering org.</li>
-                <li><strong className="text-foreground">Expressed interest in getting started</strong> — "what do I do first?" or "how do I get started?" are perfect indicators. These are the accounts Bluebird is built for.</li>
+                <li><strong className="text-foreground">Expressed interest in getting started</strong> — “what do I do first?” or “how do I get started?” are perfect indicators. These are the accounts Bluebird is built for.</li>
                 <li><strong className="text-foreground">Less than 5% of contract capacity consumed</strong> — barely touched their contract and need a nudge to get going.</li>
               </ul>
             </div>

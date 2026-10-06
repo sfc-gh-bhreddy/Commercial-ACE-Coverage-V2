@@ -1,10 +1,10 @@
-# Commercial ASE Coverage
+# Commercial ASC Coverage V2
 
-Internal tool for routing uncovered FY27 Cap1 deals to the right ACE motion — Assign an ASE, Bluebird, or Webinar. Detects SI/partner involvement and suppresses recommendations accordingly.
+Internal tool for routing uncovered FY27 Cap1 deals to the right ASC motion — ASE (1:1), Hybrid (ASE + Bluebird + Webinar), or Bluebird + Webinar. Detects SI/partner/PS involvement and suppresses recommendations accordingly.
 
 ---
 
-## Setup (5 minutes)
+## Local development
 
 ### 1. Prerequisites
 
@@ -14,8 +14,8 @@ Internal tool for routing uncovered FY27 Cap1 deals to the right ACE motion — 
 ### 2. Clone the repo
 
 ```bash
-git clone https://github.com/sfc-gh-bharreddy/Commercial-ACE-Coverage-Final.git
-cd Commercial-ACE-Coverage-Final
+git clone https://github.com/sfc-gh-bhreddy/Commercial-ACE-Coverage-V2.git
+cd Commercial-ACE-Coverage-V2
 ```
 
 ### 3. Set up your Snowflake connection
@@ -57,32 +57,71 @@ Open [http://localhost:3000](http://localhost:3000).
 | DM / SEM / AE / SE Rollup | Coverage breakdown by manager hierarchy |
 | Guide & Legend | Explains all signals, pills, and what SI involved means |
 
-### Suggested play logic
+### Suggested play logic (3-tier ACV routing)
 
-- **ASE** — deal ACV ≥ $50K → open a TMR to assign an Account Engineer
-- **Bluebird** — sub-$50K → enroll in the BOB self-service activation program
-- **Webinar** — relevant topic detected from opportunity signals
-- **SI involved** — partner/SI detected on all open use cases OR an approved Salesforce deal registration is attached; ASE recommendation suppressed
+| ACV range | Suggested play | Pill |
+|-----------|---------------|------|
+| Above $65K | ASE 1:1 | ASE |
+| Above $25K through $65K | ASE + Bluebird + Webinar | Hybrid |
+| Up to $25K | Bluebird + Webinar | Bluebird / Webinar |
 
-> Suggestions are starting points. If you see a clear need for an ASE, assign one regardless of what the app shows.
+### Suppression signals (precedence order)
 
-### SI involved detection
+| Signal | Pill | Meaning |
+|--------|------|---------|
+| SI involved | SI involved | All open use cases have a partner, or approved deal registration exists |
+| Partner involved | Partner involved | At least one use case names a partner |
+| PS involved | PS involved | Professional Services engagement on the account |
+| Partner acct | Partner acct | Account type is Partner / DCP / DCS |
+| OD flip | OD flip | Account has both On Demand and Capacity closed-won opps |
 
-Two signals are combined:
-1. All open (not deployed, not lost) use cases on the account have a partner attached (`IS_PARTNER_ATTACHED`)
-2. The Cap1 opportunity has an approved deal registration in Salesforce ("SPN: Deal Registrations")
+When a suppression signal fires, the deal gets no ASE/Bluebird/Webinar recommendation. Signals are exclusive — the highest-precedence match wins.
 
-This is a heuristic — always verify in Salesforce before skipping outreach.
+---
+
+## SPCS deployment
+
+The app is pre-configured for Snowpark Container Services. The Snowflake connection layer (`lib/snowflake.ts`) auto-detects the SPCS token at `/snowflake/session/token` — no code changes needed.
+
+### 1. Build the Docker image
+
+```bash
+cd ~/Desktop/ASE-Commercial-Coverage-V2
+docker build --platform linux/amd64 -t asc-coverage-v2:latest .
+```
+
+### 2. Create Snowflake objects and push
+
+Open `deploy.sql` and run Steps 1-2 to create the database, schema, and image repository. Copy the `repository_url` from the output, then:
+
+```bash
+docker login <repository_url>
+docker tag asc-coverage-v2:latest <repository_url>/asc-coverage-v2:latest
+docker push <repository_url>/asc-coverage-v2:latest
+```
+
+### 3. Create the service
+
+Run Steps 3-5 in `deploy.sql` to create the compute pool and service. Step 7 gives you the public URL.
+
+### 4. Verify
+
+```sql
+SELECT SYSTEM$GET_SERVICE_STATUS('ASC_COVERAGE_APP.V2.COVERAGE_SERVICE');
+SHOW ENDPOINTS IN SERVICE ASC_COVERAGE_APP.V2.COVERAGE_SERVICE;
+```
+
+See `deploy.sql` for the full script including teardown commands.
 
 ---
 
 ## Troubleshooting
 
-**Browser opens but shows "Loading…" for a long time**
-The Snowflake query is running. First load is slow (~30–60s). Subsequent loads are instant from cache.
+**Browser opens but shows "Loading..." for a long time**
+The Snowflake query is running. First load is slow (~30-60s). Subsequent loads are instant from cache.
 
-**Authentication popup doesn't appear**
-Make sure `authenticator = "externalbrowser"` is set in your connections.toml. A browser window should open for SSO login on first run.
+**Authentication popup doesn't appear (local dev)**
+Make sure `authenticator = "externalbrowser"` is set in your connections.toml.
 
 **"Connection failed" error**
 Check that your `~/.snowflake/connections.toml` has the correct account identifier and your role has access to `SALES.RAVEN` and `SALES.SE_REPORTING`.

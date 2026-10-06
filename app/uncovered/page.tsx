@@ -13,6 +13,18 @@ import { formatUsd } from "@/lib/format";
 import { regionLabel } from "@/lib/constants";
 import type { Deal } from "@/lib/types";
 
+const REVIEW_SIGNALS = [
+  { label: "SI involved", matches: (deal: Deal) => deal.isSiInvolved },
+  { label: "Partner involved", matches: (deal: Deal) => deal.isPartnerInvolved },
+  { label: "PS involved", matches: (deal: Deal) => deal.isPsInvolved },
+  { label: "Partner acct", matches: (deal: Deal) => deal.isPartnerAccount },
+  { label: "OD flip", matches: (deal: Deal) => deal.isOdFlip },
+];
+
+function signalLabels(deal: Deal): string[] {
+  return REVIEW_SIGNALS.filter((signal) => signal.matches(deal)).map((signal) => signal.label);
+}
+
 function UncoveredInner() {
   const { quarterDeals } = useCoverage();
   const params = useSearchParams();
@@ -59,8 +71,32 @@ function UncoveredInner() {
     if (!bx) return -1;
     return bx.localeCompare(ax);
   });
-  // When no drill filter is active, show only uncovered accounts by default.
-  const filtered = drillLabel ? sorted : sorted.filter((d) => !d.hasAnyAse);
+  // AE/SE drill-downs keep the existing deal scope, but separate accounts
+  // with potential external involvement so they can still be reviewed.
+  const isPersonDrill = Boolean(drillSe || drillOwner);
+  const filtered = drillLabel ? sorted : sorted.filter((deal) => !deal.hasAnyAse);
+  // Partition by account: an opportunity-level registration can flag only one
+  // of several deals, but the account should appear in just one section.
+  const reviewAccountIds = new Set(
+    isPersonDrill ? filtered.filter((deal) => signalLabels(deal).length > 0).map((deal) => deal.accountId) : [],
+  );
+  const regularDeals = isPersonDrill
+    ? filtered.filter((deal) => !reviewAccountIds.has(deal.accountId))
+    : filtered;
+  const reviewDeals = isPersonDrill
+    ? filtered.filter((deal) => reviewAccountIds.has(deal.accountId))
+    : [];
+  const reviewAccountCount = new Set(reviewDeals.map((deal) => deal.accountId)).size;
+  const accountSignals = new Map<string, Set<string>>();
+  for (const deal of reviewDeals) {
+    const labels = accountSignals.get(deal.accountId) ?? new Set<string>();
+    signalLabels(deal).forEach((label) => labels.add(label));
+    accountSignals.set(deal.accountId, labels);
+  }
+  const signalCounts = REVIEW_SIGNALS.map((signal) => ({
+    label: signal.label,
+    count: [...accountSignals.values()].filter((labels) => labels.has(signal.label)).length,
+  })).filter((signal) => signal.count > 0);
   const s = summarize(filtered);
 
   return (
@@ -109,10 +145,32 @@ function UncoveredInner() {
           <span>median deal {formatUsd(s.gapAcvMedian || medianAcv(sorted))}</span>
         </div>
 
+        {isPersonDrill ? <h2 className="text-sm font-semibold">Accounts without review signals ({new Set(regularDeals.map((deal) => deal.accountId)).size})</h2> : null}
         <DealsTable
-          deals={filtered}
+          deals={regularDeals}
           showColumns={{ district: true, seManager: true, owner: true }}
         />
+        {isPersonDrill ? (
+          <section className="flex flex-col gap-3 border-t border-border pt-5" aria-label="Accounts with potential involvement">
+            <h2 className="text-sm font-semibold">Accounts with potential involvement ({reviewAccountCount})</h2>
+            <p className="text-xs text-muted-foreground">
+              These accounts have potential SI, partner, PS, partner-account, or OD-flip signals. Signals can overlap and do not confirm that the account is fully supported. Review each account and add an ASE if needed.
+            </p>
+            {signalCounts.length > 0 ? (
+              <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                {signalCounts.map((signal) => <span key={signal.label}>{signal.label}: {signal.count} account{signal.count === 1 ? "" : "s"}</span>)}
+              </div>
+            ) : null}
+            <DealsTable
+              deals={reviewDeals}
+              showColumns={{ district: true, seManager: true, owner: true }}
+              signalLabels={(deal) => [...(accountSignals.get(deal.accountId) ?? [])]}
+            />
+            <p className="text-xs text-muted-foreground">
+              Potential involvement is a review cue, not a reason to skip outreach. Add ASE support if the account still needs it.
+            </p>
+          </section>
+        ) : null}
         <p className="text-xs text-muted-foreground">
           Sorted by status (No ASE first), then by close date. Use column headers to re-sort or filter.
         </p>

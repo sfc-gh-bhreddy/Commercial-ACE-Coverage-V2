@@ -300,9 +300,11 @@ function FilterableSortHeader({
 export function DealsTable({
   deals,
   showColumns = {},
+  signalLabels,
 }: {
   deals: Deal[];
   showColumns?: { district?: boolean; seManager?: boolean; owner?: boolean;  };
+  signalLabels?: (deal: Deal) => string[];
 }) {
   const [sort, setSort] = useState<SortState>({ key: "acv", dir: "desc" });
   const [filterText, setFilterText] = useState("");
@@ -476,6 +478,7 @@ export function DealsTable({
               <FilterableSortHeader label="Cap1 ACV" sortKey="acv" className="text-right" {...sharedFilterProps} />
               <FilterableSortHeader label="TTM consumption" sortKey="ytd" className="text-right" {...sharedFilterProps} />
               <FilterableSortHeader label="Status" sortKey="status" filterable {...sharedFilterProps} />
+              {signalLabels ? <th className="text-left font-medium px-3 py-2.5">Potential signals</th> : null}
               <th className="text-left font-medium px-3 py-2.5"></th>
             </tr>
           </thead>
@@ -523,6 +526,17 @@ export function DealsTable({
                 <td className="px-3 py-2.5">
                   <StatusBadge status={d.coverageStatus} />
                 </td>
+                {signalLabels ? (
+                  <td className="px-3 py-2.5">
+                    <div className="flex flex-wrap gap-1">
+                      {signalLabels(d).map((label) => (
+                        <span key={label} className="rounded-full border border-border bg-muted px-2 py-0.5 text-[11px] whitespace-nowrap">
+                          {label}
+                        </span>
+                      ))}
+                    </div>
+                  </td>
+                ) : null}
                 <td className="px-3 py-2.5">
                   <a
                     href="https://snowflake.elementum.io/services/4860adda-9a4c-460a-8698-2d7884700c55"
@@ -539,7 +553,7 @@ export function DealsTable({
             {sorted.length === 0 ? (
               <tr>
                 <td
-                  colSpan={12}
+                  colSpan={9 + Number(Boolean(showColumns.district)) + Number(Boolean(showColumns.seManager)) + Number(Boolean(showColumns.owner)) + Number(Boolean(signalLabels))}
                   className="px-4 py-8 text-center text-sm text-muted-foreground"
                 >
                   No deals match the current filter.

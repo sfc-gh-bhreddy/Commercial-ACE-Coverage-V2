@@ -14,7 +14,7 @@
 // ============================================================================
 
 import type { Deal } from "@/lib/types";
-import { BLUEBIRD_MAX_ACV } from "@/lib/constants";
+import { BLUEBIRD_MAX_ACV, HYBRID_MIN_ACV } from "@/lib/constants";
 import { bestSessionForTopic } from "@/lib/webinars";
 import type { WebinarSession } from "@/lib/webinars";
 
@@ -37,20 +37,16 @@ export interface Recommendation {
  * Evaluation order matters — the ACV gate is checked FIRST. A $200k deal that
  * has never consumed still gets only "Assign an ASE", never Bluebird.
  *
- *   SI involved (all open UCs have SI)       -> no action
- *   Partner involved (any UC has a partner)  -> no action
- *   PS involved (any UC has PS engagement)   -> no action
- *   Partner account (account IS a partner)   -> no action
- *   OD flip (On Demand + Capacity closed won)-> no action
- *   cap1Acv >= $65k                          -> ASE
- *   cap1Acv <  $65k, new to Snowflake        -> Bluebird + Webinar + ASE
- *   cap1Acv <  $65k, all others              -> Bluebird + Webinar
+ *   SI involved / partner / PS / etc.         -> no action
+ *   cap1Acv >  $65k                          -> primarily ASE 1:1
+ *   $25k < cap1Acv <= $65k                   -> hybrid consideration
+ *   cap1Acv <= $25k                          -> primarily Bluebird + Webinar
  *
  * @param today Injected rather than read from Date.now() so the live/on-demand
  *              boundary is testable and one render stays internally consistent.
  */
 export function recommend(deal: Deal, today?: Date): Recommendation {
-  const { cap1Acv, consumptionStage, isNewToSnowflake, recommendedTopicId } = deal;
+  const { cap1Acv, consumptionStage, recommendedTopicId } = deal;
 
   // ---- Gate 0: external ownership / partner signals suppress everything -----
   // Every open (not deployed) use case has an SI on it — the account is
@@ -116,50 +112,43 @@ export function recommend(deal: Deal, today?: Date): Recommendation {
   // thing every brand-new account needs regardless of what else we know.
   const topicId = recommendedTopicId ?? 1;
 
-  // ---- Gate 1: deal size decides self-service vs human ---------------------
-  if (cap1Acv >= BLUEBIRD_MAX_ACV) {
+  // ---- Gate 1: deal size decides the tier -----------------------------------
+  // Above $65K: primarily 1:1 ASE.
+  if (cap1Acv > BLUEBIRD_MAX_ACV) {
     return {
       motions: ["ASE"],
       bestWebinar: null,
-      drivers: [`Cap1 ACV ${fmtAcv(cap1Acv)} — at or above $65K, assign an ASE`],
+      drivers: [`Cap1 ACV ${fmtAcv(cap1Acv)} — above $65K, consider 1:1 ASE support`],
     };
   }
 
   const webinar = bestSessionForTopic(topicId, today);
 
-  // ---- Gate 3: brand-new accounts get everything --------------------------
-  // NOTE: isNewToSnowflake is currently derived from the same zero-lifetime-
-  // revenue check as consumptionStage === 'Not Started', so this branch catches
-  // every Not Started account and gate 4 only ever fires for Started Slow.
-  if (isNewToSnowflake) {
+  // Above $25K through $65K: consider hybrid coverage.
+  if (cap1Acv > HYBRID_MIN_ACV) {
     return {
-      motions: ["Bluebird", "Webinar", "ASE"],
+      motions: ["ASE", "Bluebird", "Webinar"],
       bestWebinar: webinar,
       drivers: [
-        `Cap1 ACV ${fmtAcv(cap1Acv)} — below $65K`,
-        "New to Snowflake — no prior consumption",
-        "ASE included: new accounts benefit from hands-on support",
+        `Cap1 ACV ${fmtAcv(cap1Acv)} — above $25K through $65K, consider hybrid support`,
+        "Consider 1:1 ASE alongside Bluebird and a webinar",
       ],
     };
   }
 
-  // ---- Gate 4: everything else gets self-service ---------------------------
-  // Ramping / Mature accounts fall through here: consumption started, but
-  // the topic-matched webinar and Bluebird still apply as next plays.
-  const stageDriver =
-    consumptionStage === "Ramping"
-      ? "Ramping — keep momentum with self-service enablement"
-      : consumptionStage === "Mature"
-        ? "Mature consumption — self-service for expansion topics"
-        : consumptionStage === "Not Started"
-          ? "Not started — no consumption since close"
-          : "Started slow — low recent activity";
+  // Up to and including $25K: primarily Bluebird + Webinar.
   return {
     motions: ["Bluebird", "Webinar"],
     bestWebinar: webinar,
     drivers: [
-      `Cap1 ACV ${fmtAcv(cap1Acv)} — below $65K`,
-      stageDriver,
+      `Cap1 ACV ${fmtAcv(cap1Acv)} — up to $25K, primarily Bluebird`,
+      consumptionStage === "Not Started"
+        ? "Not started — no consumption since close"
+        : consumptionStage === "Ramping"
+          ? "Ramping — keep momentum with self-service enablement"
+          : consumptionStage === "Mature"
+            ? "Mature consumption — self-service for expansion topics"
+            : "Started slow — low recent activity",
     ],
   };
 }
