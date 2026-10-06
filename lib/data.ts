@@ -416,6 +416,9 @@ function coverageStatus(anyAce: boolean): CoverageStatus {
 }
 
 export async function getDeals(): Promise<Deal[]> {
+  // SPCS services run with only the primary role; activate secondary roles so
+  // the query can reach FIVETRAN.SALESFORCE tables granted via other roles.
+  await runQuery("USE SECONDARY ROLES ALL").catch(() => {});
   const rows = await runQueryLong<RawDeal>(DEALS_SQL);
   return rows.map((r) => {
     const anyAce = Boolean(r.HAS_ANY_ACE);
