@@ -56,8 +56,24 @@ snowflake.configure({
 })
 
 const SPCS_TOKEN_PATH = "/snowflake/session/token"
+const IS_SPCS = fs.existsSync(SPCS_TOKEN_PATH)
 
 const LOG_PREFIX = "[snowflake]"
+
+/**
+ * In SPCS the service identity only has the primary role active. Many tables
+ * (e.g. FIVETRAN.SALESFORCE.*) are granted via secondary roles. This helper
+ * activates them on a specific connection before running the real query.
+ */
+function activateSecondaryRoles(conn: snowflake.Connection): Promise<void> {
+  if (!IS_SPCS) return Promise.resolve()
+  return new Promise((resolve, reject) => {
+    conn.execute({
+      sqlText: "USE SECONDARY ROLES ALL",
+      complete: (err) => (err ? reject(err) : resolve()),
+    })
+  })
+}
 
 /** Single-line SQL preview for logs (keeps log volume small). */
 function previewSql(sql: string, maxLen = 200): string {
@@ -437,6 +453,7 @@ function queryWithPool(
   warehouse?: string,
 ): Promise<Record<string, any>[]> {
   return pool.use(async (conn) => {
+    await activateSecondaryRoles(conn)
     const t0 = Date.now()
     sfLog(`query start mode=${authTag} sql=${JSON.stringify(previewSql(query))}`)
     return new Promise<Record<string, any>[]>((res, rej) => {
@@ -469,6 +486,7 @@ function queryWithPoolLongRunning(
   warehouse?: string,
 ): Promise<Record<string, any>[]> {
   return pool.use(async (conn) => {
+    await activateSecondaryRoles(conn)
     sfLog(`long-running start mode=${authTag} sql=${JSON.stringify(previewSql(query))}`)
     return runLongRunningOnConnection(conn as unknown as PollingConnection, query, longOpts, warehouse)
   })

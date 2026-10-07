@@ -134,9 +134,16 @@ uc_team_ace AS (
       AND SALESFORCE_ACCOUNT_ID IS NOT NULL
     GROUP BY 1
 ),
--- account_team_ace: disabled in SPCS — FIVETRAN.SALESFORCE.ACCOUNT_TEAM_MEMBER
--- is not accessible to the service identity. The other three ASE signals
--- (TMR, activation tag, UC team ACE) still detect coverage.
+account_team_ace AS (
+    SELECT ACCOUNT_ID AS account_id,
+           MIN(CAST(CREATED_DATE AS DATE)) AS first_evidence_date
+    FROM FIVETRAN.SALESFORCE.ACCOUNT_TEAM_MEMBER
+    WHERE TEAM_MEMBER_ROLE IN ('SE - Account Engineer','SE - Activation')
+      AND IS_DELETED       = FALSE
+      AND _FIVETRAN_DELETED = FALSE
+      AND ACCOUNT_ID IS NOT NULL
+    GROUP BY 1
+),
 -- SI (systems integrator) partner involvement, judged by the OPEN use-case mix:
 --   all open (not deployed, not lost) UCs have an SI -> "SI involved", suppress
 --   even one open UC without SI -> normal recommendations (assign an ASE etc.)
@@ -294,12 +301,13 @@ SELECT
     (t.account_id   IS NOT NULL)                              AS HAS_TMR,
     (tag.account_id IS NOT NULL)                              AS HAS_ACTIVATION_TAG,
     (uct.account_id IS NOT NULL)                              AS HAS_UC_TEAM_ACE,
-    FALSE                                                     AS HAS_ACCOUNT_TEAM_ACE,
+    (att.account_id IS NOT NULL)                              AS HAS_ACCOUNT_TEAM_ACE,
     (t.account_id IS NOT NULL OR tag.account_id IS NOT NULL
-     OR uct.account_id IS NOT NULL)                             AS HAS_ANY_ACE,
+     OR uct.account_id IS NOT NULL OR att.account_id IS NOT NULL) AS HAS_ANY_ACE,
     (LEAST(
         COALESCE(t.first_evidence_date,   '9999-12-31'),
-        COALESCE(uct.first_evidence_date, '9999-12-31')
+        COALESCE(uct.first_evidence_date, '9999-12-31'),
+        COALESCE(att.first_evidence_date, '9999-12-31')
     ) <= c.CLOSE_DATE)                                        AS HAS_ACE_BY_CLOSE,
     c.DISTRICT                                                AS DISTRICT,
     c.RVP                                                     AS RVP,
@@ -338,7 +346,7 @@ CROSS JOIN params p
 LEFT JOIN tmr               t   ON t.account_id   = c.SALESFORCE_ACCOUNT_ID
 LEFT JOIN uc_activation_tag tag ON tag.account_id = c.SALESFORCE_ACCOUNT_ID
 LEFT JOIN uc_team_ace       uct ON uct.account_id = c.SALESFORCE_ACCOUNT_ID
--- LEFT JOIN account_team_ace  att ON att.account_id = c.SALESFORCE_ACCOUNT_ID  -- disabled: FIVETRAN table not accessible in SPCS
+LEFT JOIN account_team_ace  att ON att.account_id = c.SALESFORCE_ACCOUNT_ID
 LEFT JOIN SALES.RAVEN.D_SALESFORCE_ACCOUNT_CUSTOMERS acct
        ON acct.SALESFORCE_ACCOUNT_ID = c.SALESFORCE_ACCOUNT_ID
 LEFT JOIN se_person_mgr    spm ON spm.SE_NAME    = acct.LEAD_SALES_ENGINEER_NAME
@@ -408,9 +416,6 @@ function coverageStatus(anyAce: boolean): CoverageStatus {
 }
 
 export async function getDeals(): Promise<Deal[]> {
-  // SPCS services run with only the primary role; activate secondary roles so
-  // the query can reach FIVETRAN.SALESFORCE tables granted via other roles.
-  await runQuery("USE SECONDARY ROLES ALL").catch(() => {});
   const rows = await runQueryLong<RawDeal>(DEALS_SQL);
   return rows.map((r) => {
     const anyAce = Boolean(r.HAS_ANY_ACE);
