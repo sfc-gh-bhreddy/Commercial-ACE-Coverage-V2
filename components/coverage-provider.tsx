@@ -26,13 +26,28 @@ interface CoverageState {
 const CoverageContext = React.createContext<CoverageState | null>(null);
 
 const CACHE_KEY = "comm-ase-deals-v3-partner-signals";
+// Matches the server-side disk cache so the browser never shows data older
+// than what the API would serve.
+const CACHE_TTL_MS = 10 * 60 * 1000;
+
+interface CachedDeals {
+  savedAt: number;
+  rows: Deal[];
+}
 
 function readCached(): Deal[] | null {
   if (typeof window === "undefined") return null;
   try {
     const raw = window.localStorage.getItem(CACHE_KEY);
     if (!raw) return null;
-    const parsed = JSON.parse(raw) as Deal[];
+    const entry = JSON.parse(raw) as CachedDeals;
+    // Entries written before the TTL existed are a bare array (no savedAt) —
+    // treat them as expired.
+    if (typeof entry?.savedAt !== "number" || Date.now() - entry.savedAt > CACHE_TTL_MS) {
+      window.localStorage.removeItem(CACHE_KEY);
+      return null;
+    }
+    const parsed = entry.rows;
     if (!Array.isArray(parsed) || parsed.length === 0) return null;
     // Shape check: data written before a schema change (new signal fields) is
     // stale — drop it and refetch instead of serving zeros forever.
@@ -73,7 +88,8 @@ export function CoverageProvider({ children }: { children: React.ReactNode }) {
         setDeals(data);
         setError(null);
         try {
-          window.localStorage.setItem(CACHE_KEY, JSON.stringify(data));
+          const entry: CachedDeals = { savedAt: Date.now(), rows: data };
+          window.localStorage.setItem(CACHE_KEY, JSON.stringify(entry));
         } catch {
           // localStorage full/unavailable — non-fatal
         }

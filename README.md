@@ -1,4 +1,4 @@
-# Commercial ASC Coverage V2
+# Wingmate
 
 Internal tool for routing uncovered FY27 Cap1 deals to the right ASC motion — ASE (1:1), Hybrid (ASE + Bluebird + Webinar), or Bluebird + Webinar. Detects SI/partner/PS involvement and suppresses recommendations accordingly.
 
@@ -14,8 +14,8 @@ Internal tool for routing uncovered FY27 Cap1 deals to the right ASC motion — 
 ### 2. Clone the repo
 
 ```bash
-git clone https://github.com/sfc-gh-bhreddy/Commercial-ACE-Coverage-V2.git
-cd Commercial-ACE-Coverage-V2
+git clone https://github.com/sfc-gh-bhreddy/Wingmate.git
+cd Wingmate
 ```
 
 ### 3. Set up your Snowflake connection
@@ -86,29 +86,29 @@ The app is pre-configured for Snowpark Container Services. The Snowflake connect
 ### 1. Build the Docker image
 
 ```bash
-cd ~/Desktop/ASE-Commercial-Coverage-V2
-docker build --platform linux/amd64 -t asc-coverage-v2:latest .
+cd ~/Desktop/Wingmate
+docker build --platform linux/amd64 -t wingmate:latest .
 ```
 
 ### 2. Create Snowflake objects and push
 
-Open `deploy.sql` and run Steps 1-2 to create the database, schema, and image repository. Copy the `repository_url` from the output, then:
+Open `deploy.sql` and run Steps 1-2 to create the image repository. Copy the `repository_url` from the output, then:
 
 ```bash
-docker login <repository_url>
-docker tag asc-coverage-v2:latest <repository_url>/asc-coverage-v2:latest
-docker push <repository_url>/asc-coverage-v2:latest
+snow spcs image-registry login --connection "sfcogsops-snowhouse_aws_us_west_2"
+docker tag wingmate:latest <repository_url>/wingmate:latest
+docker push <repository_url>/wingmate:latest
 ```
 
 ### 3. Create the service
 
-Run Steps 3-5 in `deploy.sql` to create the compute pool and service. Step 7 gives you the public URL.
+Run Step 4 in `deploy.sql` to create the service. Step 6 gives you the public URL.
 
 ### 4. Verify
 
 ```sql
-SELECT SYSTEM$GET_SERVICE_STATUS('ASC_COVERAGE_APP.V2.COVERAGE_SERVICE');
-SHOW ENDPOINTS IN SERVICE ASC_COVERAGE_APP.V2.COVERAGE_SERVICE;
+SELECT SYSTEM$GET_SERVICE_STATUS('TEMP.BHREDDY.WINGMATE_SERVICE');
+SHOW ENDPOINTS IN SERVICE TEMP.BHREDDY.WINGMATE_SERVICE;
 ```
 
 See `deploy.sql` for the full script including teardown commands.

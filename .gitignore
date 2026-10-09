@@ -47,3 +47,6 @@ next-env.d.ts
 .snowflake/
 connections.toml
 snowflake.log
+
+# Local project skill (contains customer names) — never commit
+.cortex-skills/

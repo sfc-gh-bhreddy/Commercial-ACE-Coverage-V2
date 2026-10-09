@@ -2,8 +2,8 @@
 set -e
 
 echo ""
-echo "Commercial ASE Coverage — Setup"
-echo "================================"
+echo "Wingmate — Setup"
+echo "================"
 echo ""
 
 # Check Node.js

@@ -5,7 +5,7 @@
 // business logic, this file and lib/recommend.ts are the only two places to look.
 // ============================================================================
 
-export const APP_TITLE = "ASE Commercial Coverage";
+export const APP_TITLE = "Wingmate";
 export const APP_DESCRIPTION =
   "ASC Engineer coverage on Cap1 deals across the Commercial org (FY27) \u2014 where you're covered, where the gaps are, and which Cap1s to attach an ASE to next.";
 export const LOGO_PATH = "/icon.svg";

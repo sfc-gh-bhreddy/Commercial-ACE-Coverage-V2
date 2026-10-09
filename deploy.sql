@@ -1,65 +1,54 @@
 -- =============================================================================
--- Commercial ASC Coverage V2 — SPCS Deployment
+-- Wingmate — SPCS Deployment
 -- =============================================================================
 -- Run these statements in order. Adjust DB/SCHEMA/POOL names to match your env.
 -- Prerequisites: a role with CREATE IMAGE REPOSITORY, CREATE SERVICE, and
--- USAGE on a compute pool.
+-- USAGE on a compute pool. SALES_ENGINEER cannot create databases or compute
+-- pools, so this deploys into TEMP.BHREDDY on an existing pool.
 -- =============================================================================
 
--- 1. Database & schema (reuse an existing one or create)
+-- 1. Schema
 USE ROLE SALES_ENGINEER;
-CREATE DATABASE IF NOT EXISTS ASC_COVERAGE_APP;
-CREATE SCHEMA  IF NOT EXISTS ASC_COVERAGE_APP.V2;
-USE SCHEMA ASC_COVERAGE_APP.V2;
+USE SCHEMA TEMP.BHREDDY;
 
 -- 2. Image repository
-CREATE IMAGE REPOSITORY IF NOT EXISTS ASC_COVERAGE_APP.V2.IMAGES;
+CREATE IMAGE REPOSITORY IF NOT EXISTS TEMP.BHREDDY.WINGMATE_IMAGES;
 
 -- Show the repo URL (you'll need this for docker push)
-SHOW IMAGE REPOSITORIES IN SCHEMA ASC_COVERAGE_APP.V2;
+SHOW IMAGE REPOSITORIES LIKE 'WINGMATE_IMAGES' IN SCHEMA TEMP.BHREDDY;
 -- Copy the "repository_url" value — it looks like:
---   <org>-<acct>.registry.snowflakecomputing.com/asc_coverage_app/v2/images
+--   <org>-<acct>.registry.snowflakecomputing.com/temp/bhreddy/wingmate_images
 
--- 3. Compute pool (skip if reusing an existing one)
-CREATE COMPUTE POOL IF NOT EXISTS ASC_COVERAGE_POOL
-  MIN_NODES = 1
-  MAX_NODES = 1
-  INSTANCE_FAMILY = CPU_X64_XS
-  AUTO_RESUME  = TRUE
-  AUTO_SUSPEND_SECS = 300;
-
--- 4. Grant the role access
-GRANT USAGE ON COMPUTE POOL ASC_COVERAGE_POOL TO ROLE SALES_ENGINEER;
+-- 3. Compute pool: reuse an existing one you have USAGE on
+SHOW COMPUTE POOLS;
 
 -- =============================================================================
 -- DOCKER BUILD & PUSH (run these in your terminal, not in Snowflake)
 -- =============================================================================
 --
--- # Log in to the Snowflake image registry
--- docker login <repository_url>
---   Username: BHREDDY
---   Password: (use snowsql token or password)
+-- # Log in to the Snowflake image registry (SSO accounts: use snow, not docker login)
+-- snow spcs image-registry login --connection "sfcogsops-snowhouse_aws_us_west_2"
 --
 -- # Build the image
--- cd ~/Desktop/ASE-Commercial-Coverage-V2
--- docker build --platform linux/amd64 -t asc-coverage-v2:latest .
+-- cd ~/Desktop/Wingmate
+-- docker build --platform linux/amd64 -t wingmate:latest .
 --
 -- # Tag for Snowflake registry
--- docker tag asc-coverage-v2:latest <repository_url>/asc-coverage-v2:latest
+-- docker tag wingmate:latest <repository_url>/wingmate:latest
 --
 -- # Push
--- docker push <repository_url>/asc-coverage-v2:latest
+-- docker push <repository_url>/wingmate:latest
 --
 -- =============================================================================
 
--- 5. Create the service
-CREATE SERVICE IF NOT EXISTS ASC_COVERAGE_APP.V2.COVERAGE_SERVICE
-  IN COMPUTE POOL ASC_COVERAGE_POOL
+-- 4. Create the service
+CREATE SERVICE IF NOT EXISTS TEMP.BHREDDY.WINGMATE_SERVICE
+  IN COMPUTE POOL BEARLEY_COMPUTE_POOL
   FROM SPECIFICATION $$
   spec:
     containers:
       - name: app
-        image: /asc_coverage_app/v2/images/asc-coverage-v2:latest
+        image: /temp/bhreddy/wingmate_images/wingmate:latest
         env:
           SNOWFLAKE_WAREHOUSE: SNOWADHOC
         resources:
@@ -74,23 +63,23 @@ CREATE SERVICE IF NOT EXISTS ASC_COVERAGE_APP.V2.COVERAGE_SERVICE
         port: 3000
         public: true
   $$
+  QUERY_WAREHOUSE = SNOWADHOC
   MIN_INSTANCES = 1
   MAX_INSTANCES = 1;
 
--- 6. Check service status
-SHOW SERVICES IN SCHEMA ASC_COVERAGE_APP.V2;
-SELECT SYSTEM$GET_SERVICE_STATUS('ASC_COVERAGE_APP.V2.COVERAGE_SERVICE');
+-- 5. Check service status
+SELECT SYSTEM$GET_SERVICE_STATUS('TEMP.BHREDDY.WINGMATE_SERVICE');
 
--- 7. Get the public URL
-SHOW ENDPOINTS IN SERVICE ASC_COVERAGE_APP.V2.COVERAGE_SERVICE;
--- The "ingress_url" is the URL you hand out to users.
+-- 6. Get the public URL
+SHOW ENDPOINTS IN SERVICE TEMP.BHREDDY.WINGMATE_SERVICE;
+-- The "ingress_url" is the URL you hand out to users. It changes every time
+-- the service is dropped and recreated.
 
--- 8. View logs (debugging)
--- SELECT SYSTEM$GET_SERVICE_LOGS('ASC_COVERAGE_APP.V2.COVERAGE_SERVICE', 0, 'app', 100);
+-- 7. View logs (debugging)
+-- SELECT SYSTEM$GET_SERVICE_LOGS('TEMP.BHREDDY.WINGMATE_SERVICE', 0, 'app', 100);
 
 -- =============================================================================
 -- TEARDOWN (when needed)
 -- =============================================================================
--- DROP SERVICE IF EXISTS ASC_COVERAGE_APP.V2.COVERAGE_SERVICE;
--- DROP COMPUTE POOL IF EXISTS ASC_COVERAGE_POOL;
--- DROP IMAGE REPOSITORY IF EXISTS ASC_COVERAGE_APP.V2.IMAGES;
+-- DROP SERVICE IF EXISTS TEMP.BHREDDY.WINGMATE_SERVICE;
+-- DROP IMAGE REPOSITORY IF EXISTS TEMP.BHREDDY.WINGMATE_IMAGES;
